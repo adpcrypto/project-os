@@ -1,6 +1,9 @@
 export PATH="$HOME/opt/cross/bin:$PATH"
 mkdir -p build
 cd build && rm -rf *
+
+
+#x86 build
 i686-elf-as ../boot.s -o boot.o
 i686-elf-gcc -c ../kernel.c -o kernel.o -std=gnu99 -ffreestanding -O2 -Wall -Wextra
 i686-elf-gcc -T ../linker.ld -o myos -ffreestanding -O2 -nostdlib boot.o kernel.o -lgcc
@@ -18,7 +21,7 @@ cp ../grub.cfg isodir/boot/grub/grub.cfg
 grub-mkrescue -o myos.iso isodir
 
 qemu-system-i386 -cdrom myos.iso
-#qemu-system-i386 -kernel myos
+#qemu-system-i386 -kernel myos Direct boot, no grub menu
 
 #For usb
 #sudo dd if=myos.iso of=/dev/sdx && sync
