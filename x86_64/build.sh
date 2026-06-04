@@ -4,9 +4,12 @@ cd build && rm -rf *
 
 
 #x86 build
-nasm -f elf64 ../boot.s -o boot.o
-x86_64-elf-gcc -c ../kernel.c -o kernel.o -std=gnu99 -ffreestanding -O2 -Wall -Wextra
-x86_64-elf-gcc -T ../linker.ld -o myos -ffreestanding -O2 -nostdlib boot.o kernel.o -lgcc
+# nasm -f elf64 ../boot.s -o boot.o
+# x86_64-elf-gcc -c ../kernel.c -o kernel.o -std=gnu99 -ffreestanding -O2 -Wall -Wextra
+# x86_64-elf-gcc -T ../linker.ld -o myos -ffreestanding -O2 -nostdlib boot.o kernel.o -lgcc
+
+cmake .. -DCMAKE_TOOLCHAIN_FILE=../x86_64-toolchain.cmake
+make # VERBOSE=1
 
 #Check if valid Multiboot header
 if grub-file --is-x86-multiboot2 myos; then
