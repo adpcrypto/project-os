@@ -17,7 +17,7 @@ multiboot_end:
 section .bootstrap_stack nobits
 align 16
 stack_bottom:
-    resb 16384      ; 16KB of stack space TODOis it bit or byte?
+    resb 16384      ; 16KB of stack space   
 stack_top:
 
 section .bss
@@ -27,8 +27,8 @@ pml4_table:
     resb 4096
 pdpt_table:
     resb 4096
-page_directory:
-    resb 4096
+; page_directory:
+;     resb 4096     ; Wewill go for 2 level paging, allocate gb from second level direclty
 
 section .text
 global _start
@@ -46,15 +46,18 @@ _start:
     or eax, 0b11            ; Present + writable flags
     mov [pml4_table], eax
 
-    ; Point first entry of pdpt table to page directory
-    mov eax, page_directory
-    or eax, 0b11
+    mov eax, 0x000000 | 0b10000011      ; Present + Writable + Huge Page (Bit 7)
     mov [pdpt_table], eax
+
+    ; Point first entry of pdpt table to page directory
+    ; mov eax, page_directory
+    ; or eax, 0b11
+    ; mov [pdpt_table], eax
 
     ; Point first entry of page directory to a huge 2MB page
     ; Bit 7 (0x80) makes this a 2MB page instead of pointing to a page table
-    mov eax, 0x000000 | 0b10000011      ; Present + writable + huge page
-    mov [page_directory], eax
+    ; mov eax, 0x000000 | 0b10000011      ; Present + writable + huge page
+    ; mov [page_directory], eax
 
     ; 3. Load page table pointer into cr3
     mov eax, pml4_table

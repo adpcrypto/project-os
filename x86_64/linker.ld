@@ -8,6 +8,8 @@ SECTIONS
     /* GRUB loads kernel starting at 1MB physical address */
     . = 1M;
 
+    _kernel_start = .;
+
     .text :
     {
         KEEP(*(.multiboot2))
@@ -17,4 +19,6 @@ SECTIONS
     .rodata :   { *(.rodata) }
     .data   :   { *(.data) }
     .bss    :   { *(.bss) }
+
+    _kernel_end = .;
 }

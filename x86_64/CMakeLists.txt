@@ -1,30 +1,33 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.20)
 
 # Enable C and Assembly (ASM) languages for this project
 project(MyCustomOS LANGUAGES C ASM_NASM)
 
-# Ensure C compiler knows we are writing bare-metal, freestanding code
-set(CMAKE_C_FLAGS
-    "-ffreestanding \
-    -O2 \
-    -Wall \
-    -Wextra"
+# Ensure a toolchain file is being used for cross-compilation
+if(NOT CMAKE_TOOLCHAIN_FILE)
+    message(FATAL_ERROR "You must specify a toolchain file! Use: cmake --toolchain=path/to/file.cmake")
+endif()
+
+# Define our build-time Sysroot inside the build directory
+set(PARENT_DIR "${CMAKE_SOURCE_DIR}")
+set(SYSROOT_DIR "${CMAKE_BINARY_DIR}/sysroot")
+set(SYSROOT_TARGET_DIR "${SYSROOT_DIR}/usr")
+
+set(KERNEL_FLAGS
+    "-ffreestanding " 
+    "-O2 "
+    "-Wall "
+    "-Wextra "
+    "-mno-sse "                 # Shouldnt use SIMD (single instr. multiple data), kinda vector   
+    "-mno-sse2 "                # Shouldnt use SIMD (single instr. multiple data), kinda vector             
+    "-fstack-protector-strong " # SSP is implemetned
 )
+string(REPLACE ";" " " CMAKE_C_FLAGS "${KERNEL_FLAGS}")
 
 
-set(CMAKE_ASM_FLAGS "-f elf64")
+# Tell the compiler to treat the sysroot include directory as a SYSTEM path (<>)
+include_directories(SYSTEM "${SYSROOT_TARGET_DIR}/include")
 
-# Define your source files (matching the Bare Bones layout)
-set(KERNEL_SOURCES
-    boot.asm
-    kernel.c
-)
-
-# Create the final kernel executable
-add_executable(myos ${KERNEL_SOURCES})
-
-target_link_options(myos PRIVATE
-    -T ${CMAKE_CURRENT_SOURCE_DIR}/linker.ld
-    -nostdlib
-    -lgcc
-)
+# Build libc first (so kernel can link against it later), then the kernel
+add_subdirectory(libc)
+add_subdirectory(kernel)
