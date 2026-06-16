@@ -16,10 +16,14 @@ set(KERNEL_SRCS
     kernel.c
     arch/${ARCH}/tty.c
     arch/${ARCH}/ssp.c
+    arch/${ARCH}/idt.c
+    arch/${ARCH}/keyboard.c
     arch/${ARCH}/boot.asm
     arch/${ARCH}/io.asm
     arch/${ARCH}/hw_rand.asm
     arch/${ARCH}/page_checker.asm
+    arch/${ARCH}/idt_load.asm
+    arch/${ARCH}/interupts.asm
     ../build/symbols.c
 )
 

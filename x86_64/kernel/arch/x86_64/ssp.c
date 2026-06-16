@@ -97,7 +97,7 @@ void print_stack_trace(void) {
     struct stack_frame *frame; 
     
     // Grab the current frame anchor
-    __asm__ volatile("mov %%rbp, %0" : "=r"(frame));
+    __asm__ __volatile__("mov %%rbp, %0" : "=r"(frame));
 
     int depth = 0;
     if (!is_address_readable((uintptr_t)frame)) {
@@ -154,7 +154,7 @@ void __stack_chk_fail(void) {
     serial_print_string("HALTING THE CPU");
     // 2. Safely lock down the CPU core permanently
     while (1) {
-        __asm__ volatile ("cli; hlt");
+        __asm__ __volatile__ ("cli; hlt");
     }
 }
 
@@ -172,7 +172,7 @@ void kernel_init_stack_protector(void) {
 
     // Query CPUID Leaf 1 to check processor features
     eax = 1;
-    __asm__ volatile("cpuid"
+    __asm__ __volatile__("cpuid"
                      : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
                      : "a"(eax));
 

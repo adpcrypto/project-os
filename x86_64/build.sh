@@ -33,8 +33,8 @@ cp ../grub.cfg isodir/boot/grub/grub.cfg
 grub-mkrescue -o myos.iso isodir
 
 #Cpu max for stack protectors hw number generator in hw_rand.asm
-qemu-system-x86_64 -cdrom myos.iso -serial stdio
-# qemu-system-x86_64 -cpu max -d cpu_reset,int -no-shutdown -no-reboot -cdrom myos.iso
+# qemu-system-x86_64 -cdrom myos.iso -serial stdio
+qemu-system-x86_64 -cpu max -d cpu_reset,int -no-shutdown -no-reboot -cdrom myos.iso
 #qemu-system-x86_64 -cpu max -kernel myos #Direct boot, no grub menu => Error loading uncompressed kernel without PVH ELF Note 
 
 #For usb

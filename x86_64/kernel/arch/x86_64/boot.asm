@@ -108,12 +108,18 @@ section .rodata
 gdt64:
     dq 0        ; Null descriptor
 .code_segment: equ $ - gdt64
+    ; 41 - Writable bit
+    ; 42 - Map/Direction (needs to set to 1 if 43=0)
+    ; 43 - Executable bit
+    ; 44 - Descriptor type ( 1-Code/Data , 0-System/TSS )
+    ; 47 - Present bit (for segment to exist)
+    ; 53 - Long mode, nebales 64 bit execution
     ; Code descriptor: Access=1, Readable=1, Conforming=0
     ;                  Code=1, LongMode=1
     dq (1<<43) | (1<<44) | (1<<47) | (1<<53)
 .data_segment: equ $ - gdt64
     ; Data descriptor: Access=1, Writable=1, Code=0
-    dq (1<<41) | (1<<44) | (1<<47)
+    dq (1<<41) | (1<<42) | (1<<44) | (1<<47)
 .pointer:
     dw $ - gdt64 - 1
     dq gdt64

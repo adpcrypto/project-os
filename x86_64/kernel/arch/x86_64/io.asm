@@ -1,5 +1,6 @@
 global outb
 global inb
+global io_wait
 
 section .text
 
@@ -25,3 +26,10 @@ inb:
     mov dx, di      ; Move the 16-bit port number into DX
     in al, dx       ; Read byte from port DX into AL
     ret             ; Return to C (C automatically reads AL for the result)
+
+; --- io_wait ---
+; Forces a tiny ~1 microsecond delay for slow motherboard bus synchronization
+io_wait:
+    mov al, 0
+    out 0x80, al    ; Write a dummy zero byte to the safe POST diagnostic port
+    ret
