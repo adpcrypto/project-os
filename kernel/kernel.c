@@ -36,6 +36,23 @@ void print_cpu_arch(void){
     terminal_writestring("\n");   
 }
 
+__attribute__((no_stack_protector)) 
+void trigger_divide_by_zero(void) {
+    uint64_t rax_val = 5;
+    uint64_t rcx_val = 0;
+
+    // Force a raw hardware 64-bit division: RAX divided by RCX
+    __asm__ volatile(
+        ".intel_syntax noprefix\n\t"
+        "xor rdx, rdx\n\t"  // Clean Intel Syntax! No double percent signs needed.
+        "div rcx\n\t"       // Explicitly divide by the rcx register
+        ".att_syntax\n\t"   // Safely switch back so GCC doesn't break later files
+        : "=a"(rax_val)
+        : "c"(rcx_val)      // "c" forces the compiler to put rcx_val into RCX explicitly
+        : "rdx"
+    );
+}
+
 __attribute__((no_stack_protector)) //Kernel entry should't cehck its own ssp
 void kernel_main(void){
 
@@ -45,7 +62,7 @@ void kernel_main(void){
     terminal_initialize();
     terminal_writestring("Terminal Initialized\n");
 
-    // flush_keyboard_controller();
+    flush_keyboard_controller();
     init_idt();
     terminal_writestring("IDT Initialized\n");
 
@@ -57,6 +74,7 @@ void kernel_main(void){
     kernel_init_stack_protector();
     terminal_writestring("Stack protector initialized.\n");
 
+    // trigger_divide_by_zero();
     // terminal_writestring("Triggering intentional stack smash test...\n");
     // trigger_stack_smash();
 

@@ -1,4 +1,13 @@
 #include <stdint.h>
+#include "ssp.h"
+
+// Import assembly macro symbols and the flush command
+extern void idt_flush(uintptr_t idt_reg_ptr);
+extern void interrupt_entry_0(void);
+extern void interrupt_entry_13(void);
+extern void interrupt_entry_14(void);
+extern void interrupt_entry_32(void);
+extern void interrupt_entry_33(void);
 
 // Guard against stack protector issues in early boot structures
 __attribute__((no_stack_protector))
@@ -13,6 +22,15 @@ typedef struct {
     uint32_t isr_high;  // The higher 32 bits of the ISR's address
     uint32_t reserved;  // Set to 0
 } __attribute__((packed)) idt_entry_t;
+
+// Sequential layout of the stack frame matching our assembly push sequence
+typedef struct {
+    uint64_t r15, r14, r13, r12, r11, r10, r9, r8;
+    uint64_t rbp, rdi, rsi, rdx, rcx, rbx, rax;
+    uint64_t vector_number; 
+    uint64_t error_code;
+    uint64_t rip, cs, rflags, rsp, ss; 
+} __attribute__((packed)) exception_state_t;
 
 // The IDT Pointer structure that the 'lidt' assembly instruction demands
 typedef struct {
@@ -43,6 +61,7 @@ void idt_set_descriptor(uint8_t vector, void* isr, uint8_t attributes) {
 
 __attribute__((no_stack_protector))
 void pic_init(void) {
+    //By defu
     // ICW1: Start initialization chain
     outb(0x20, 0x11); io_wait();
     outb(0xA0, 0x11); io_wait();
@@ -77,19 +96,60 @@ void flush_keyboard_controller(void) {
     }
 }
 
-void init_idt(void) {
+// --- Centralized Routing Station ---
+void universal_c_router(exception_state_t* state) {
+    switch (state->vector_number) {
+        case 0:
+            serial_print_string("CRITICAL: Division by Zero caught.\n");
+            print_stack_trace();
+            while(1) { __asm__ volatile("cli; hlt"); }
+            break;
 
+        case 13:
+            serial_print_string("CRITICAL: General Protection Fault. Error Code: ");
+            serial_print_hex(state->error_code);
+            serial_putc('\n');
+            print_stack_trace();
+            while(1) { __asm__ volatile("cli; hlt"); }
+            break;
+
+        case 14:
+            serial_print_string("CRITICAL: Page Fault. Memory Violating RIP Address: ");
+            serial_print_hex(state->rip);
+            serial_putc('\n');
+            while(1) { __asm__ volatile("cli; hlt"); }
+            break;
+
+        case 32:
+            outb(0x20, 0x20); // Acknowledge Timer
+            break;
+
+        case 33:
+            // serial_print_string("Key press: ");
+            keyboard_handler_c();
+            break;
+    }
+}
+
+void init_idt(void) {
     pic_init();
     
+    // 1. Clear out all 256 descriptors initially
     for (int i = 0; i < 256; i++) {
-        idt_set_descriptor(i, generic_exception_stub, 0x8E);
+        idt_set_descriptor(i, 0, 0); 
     }
-    idt_set_descriptor(33, keyboard_isr_stub, 0x8E);
 
-    // Setup the hardware layout pointer
+    // 2. Safely configure ONLY our requested vectors
+    idt_set_descriptor(0,  interrupt_entry_0,  0x8E); // No Error: Divide-by-Zero
+    idt_set_descriptor(13, interrupt_entry_13, 0x8E); // With Error: GP Fault
+    idt_set_descriptor(14, interrupt_entry_14, 0x8E); // With Error: Page Fault
+    idt_set_descriptor(32, interrupt_entry_32, 0x8E); // No Error: Timer (Keep PIC happy)
+    idt_set_descriptor(33, interrupt_entry_33, 0x8E); // No Error: Keyboard
+
+    // 3. Set up the IDT Pointer configuration
     idt_ptr.limit = (sizeof(idt_entry_t) * 256) - 1;
     idt_ptr.base  = (uint64_t)&idt;
 
-    // Call assembly to physically load the pointer into the CPU core
+    // 4. Call the assembly wrapper to load the registers into the CPU core
     idt_load_hardware((uintptr_t)&idt_ptr);
 }

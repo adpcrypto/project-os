@@ -2,6 +2,8 @@
 #include <stdio.h> //for NULL
 #include "vga.h"
 
+#define MAX_STACK_PRINT_DEPTH 10
+
 //Smashing Stack protector
 
 // Allocate the master guard key. 
@@ -105,7 +107,7 @@ void print_stack_trace(void) {
         serial_print_string(" : ");
         serial_print_string("Corrupted Stack, can't read further\n");
     }
-    while (frame != NULL && depth < 10) {
+    while (frame != NULL && depth < MAX_STACK_PRINT_DEPTH) {
 
         // If it passes both tests, it is safe to read the return address!
         serial_print_hex(frame->return_address);
