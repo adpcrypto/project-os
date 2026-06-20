@@ -6,6 +6,24 @@
 #include "ssp.h"
 #include "cpu_arch.h"
 #include "interrupts.h"
+#include "kernel_sleep.h"
+
+void init_pit_timer(uint32_t frequency) {
+    // 1. Calculate the 16-bit divisor based on the requested frequency
+    uint32_t divisor = 1193182 / frequency;
+
+    // 2. Send the Command Byte (0x36) to Port 0x43:
+    // Bits 6-7: 00 (Channel 0)
+    // Bits 4-5: 11 (Access mode: Lobyte/Hibyte)
+    // Bits 1-3: 011 (Mode 3: Square Wave Generator)
+    // Bit 0: 0 (Binary counter)
+    outb(0x43, 0x36);
+
+    // 3. Split the 16-bit divisor and send it to the Data Port (0x40)
+    outb(0x40, (uint8_t)(divisor & 0xFF));   // Low byte
+    outb(0x40, (uint8_t)((divisor >> 8) & 0xFF)); // High byte; timer starts ticking immediately!
+}
+
 
 __attribute__((noinline))
 void secure_looking_copy(char *src, int length) {
@@ -66,14 +84,21 @@ void kernel_main(void){
     init_idt();
     terminal_writestring("IDT Initialized\n");
 
+    init_pit_timer(1000);
+    terminal_writestring("Programmable Interval Timer Initialized for 1000Hz\n");
+
     // Manually fire Interrupt 33 (0x21) using pure inline assembly
-    __asm__ __volatile__("int $0x21");
+    // __asm__ __volatile__("int $0x21");
+
+    // __asm__ volatile("int $32"); // Force-trigger Vector 32 via software
 
     print_cpu_arch();
 
     kernel_init_stack_protector();
     terminal_writestring("Stack protector initialized.\n");
 
+    kernel_sleep(2000);
+    terminal_writestring("Slept for 2 sec :)\n");
     // trigger_divide_by_zero();
     // terminal_writestring("Triggering intentional stack smash test...\n");
     // trigger_stack_smash();

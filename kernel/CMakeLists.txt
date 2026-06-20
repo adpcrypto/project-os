@@ -18,6 +18,7 @@ set(KERNEL_SRCS
     arch/${ARCH}/ssp.c
     arch/${ARCH}/idt.c
     arch/${ARCH}/keyboard.c
+    arch/${ARCH}/kernel_sleep.c
     arch/${ARCH}/boot.asm
     arch/${ARCH}/io.asm
     arch/${ARCH}/hw_rand.asm

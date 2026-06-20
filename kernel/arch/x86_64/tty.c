@@ -133,3 +133,18 @@ void terminal_write(const char* data, size_t size) {
 void terminal_writestring(const char* data) {
 	terminal_write(data, strlen(data));
 }
+
+__attribute__((no_stack_protector))
+void terminal_writehex(uintptr_t val){
+    static const char *chars = "0123456789ABCDEF";
+    
+    // Print "0x"
+    terminal_putchar('0');
+    terminal_putchar('x');
+    
+    // Extract hex digits from top (64-bit) to bottom
+    for (int i = 60; i >= 0; i -= 4) {
+        int digit = (val >> i) & 0xF;
+        terminal_putchar(chars[digit]);
+    }
+}

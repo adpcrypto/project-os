@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "ssp.h"
+#include "pic_def.h"
 
 // Import assembly macro symbols and the flush command
 extern void idt_flush(uintptr_t idt_reg_ptr);
@@ -8,6 +9,8 @@ extern void interrupt_entry_13(void);
 extern void interrupt_entry_14(void);
 extern void interrupt_entry_32(void);
 extern void interrupt_entry_33(void);
+
+__volatile__ uint64_t system_ticks = 0;
 
 // Guard against stack protector issues in early boot structures
 __attribute__((no_stack_protector))
@@ -60,30 +63,44 @@ void idt_set_descriptor(uint8_t vector, void* isr, uint8_t attributes) {
 }
 
 __attribute__((no_stack_protector))
-void pic_init(void) {
-    //By defu
-    // ICW1: Start initialization chain
-    outb(0x20, 0x11); io_wait();
-    outb(0xA0, 0x11); io_wait();
+void pic_init(int offset1, int offset2) {
+    outb(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);  // starts the initialization sequence (in cascade mode)
+	io_wait();
+	outb(PIC2_COMMAND, ICW1_INIT | ICW1_ICW4);
+	io_wait();
+	outb(PIC1_DATA, offset1);                 // ICW2: Master PIC vector offset
+	io_wait();
+	outb(PIC2_DATA, offset2);                 // ICW2: Slave PIC vector offset
+	io_wait();
+	outb(PIC1_DATA, 1 << CASCADE_IRQ);        // ICW3: tell Master PIC that there is a slave PIC at IRQ2
+	io_wait();
+	outb(PIC2_DATA, 2);                       // ICW3: tell Slave PIC its cascade identity (0000 0010)
+	io_wait();
+	
+	outb(PIC1_DATA, ICW4_8086);               // ICW4: have the PICs use 8086 mode (and not 8080 mode)
+	io_wait();
+	outb(PIC2_DATA, ICW4_8086);
+	io_wait();
 
-    // ICW2: Set vector offsets (Hardware IRQs -> IDT entries 32-47)
-    outb(0x21, 32);   // Master PIC starts at IDT 32 (Keyboard IRQ 1 = IDT 33)
-    outb(0xA1, 40);   // Slave PIC starts at IDT 40
-
-    // ICW3: Wire up Master and Slave cascade lines
-    outb(0x21, 0x04); io_wait();
-    outb(0xA1, 0x02); io_wait();
-
-    // ICW4: Set up 8086 environment mode
-    outb(0x21, 0x01); io_wait();
-    outb(0xA1, 0x01); io_wait();
-
-    // Unmask IRQ 1 (Keyboard) on Master PIC. 0xFD = 11111101b.
-    // (Bit 1 is Keyboard, Bit 2 must stay 0 to allow Slave cascade routing)
-    outb(0x21, 0xFD);
-    outb(0xA1, 0xFF); // Mask everything on Slave PIC
+    //IRQs are unasked using pic_unmask_irq()
 }
     
+void pic_unmask_irq(uint8_t irq_line) {
+    uint16_t port;
+    uint8_t value;
+
+    if (irq_line < 8) {
+        port = 0x21; // Master PIC
+    } else {
+        port = 0xA1; // Slave PIC
+        irq_line -= 8;
+    }
+    
+    // Read current mask -> clear the bit -> write it back
+    value = inb(port) & ~(1 << irq_line);
+    outb(port, value);
+}
+
 void flush_keyboard_controller(void) {
     // Read the keyboard status register (Port 0x64)
     // Bit 0 (0x01) tells us if there is data waiting to be read in Port 0x60
@@ -102,7 +119,7 @@ void universal_c_router(exception_state_t* state) {
         case 0:
             serial_print_string("CRITICAL: Division by Zero caught.\n");
             print_stack_trace();
-            while(1) { __asm__ volatile("cli; hlt"); }
+            // while(1) { __asm__ volatile("cli; hlt"); }
             break;
 
         case 13:
@@ -121,6 +138,10 @@ void universal_c_router(exception_state_t* state) {
             break;
 
         case 32:
+            system_ticks++;
+            // serial_print_string("Ticks:");
+            // serial_print_hex(system_ticks);
+            // serial_putc('\n');
             outb(0x20, 0x20); // Acknowledge Timer
             break;
 
@@ -132,7 +153,9 @@ void universal_c_router(exception_state_t* state) {
 }
 
 void init_idt(void) {
-    pic_init();
+    pic_init(32,40);
+    pic_unmask_irq(0); //PIT
+    pic_unmask_irq(1); //Keyboard
     
     // 1. Clear out all 256 descriptors initially
     for (int i = 0; i < 256; i++) {
